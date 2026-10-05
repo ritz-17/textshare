@@ -1,0 +1,15 @@
+# Local development database only (production uses AWS RDS).
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: textshare
+      POSTGRES_PASSWORD: textshare
+      POSTGRES_DB: textshare
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

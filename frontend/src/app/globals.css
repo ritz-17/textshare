@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #18181b;
+  --surface: #f4f4f5;
+  --border: #e4e4e7;
+  --muted: #71717a;
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b0b0f;
+    --foreground: #ececf1;
+    --surface: #17171d;
+    --border: #2a2a33;
+    --muted: #9b9ba7;
+    --accent: #818cf8;
+    --accent-foreground: #0b0b0f;
+  }
+  .cm-editor .cm-selectionBackground,
+  .cm-editor.cm-focused .cm-selectionBackground {
+    background: #3b3f6b !important;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+@utility input {
+  @apply w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility btn-primary {
+  @apply btn bg-[var(--accent)] text-[var(--accent-foreground)] hover:opacity-90;
+}
+
+@utility btn-secondary {
+  @apply btn border border-[var(--border)] hover:bg-[var(--surface)];
+}
