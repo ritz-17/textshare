@@ -2,3 +2,9 @@ node_modules
 .env
 .env.local
 .DS_Store
+
+# Terraform
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan

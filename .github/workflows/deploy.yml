@@ -1,0 +1,82 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # "Run workflow" button in the Actions tab
+
+# Never run two deploys at the same time; queue them instead.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  ECS_CLUSTER: textshare
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    # Skipped until the AWS_ROLE_ARN repository variable exists (set after `terraform apply`).
+    if: vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-24.04-arm # native ARM build, matching the ARM64 Fargate tasks
+    permissions:
+      contents: read
+      id-token: write # lets the job request an OIDC token to log in to AWS
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to AWS (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.app }}
+          push: true
+          provenance: false
+          tags: ${{ steps.ecr.outputs.registry }}/textshare-${{ matrix.app }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+      # Start from the latest task definition revision (Terraform keeps its
+      # settings up to date) and only swap in the new image.
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition textshare-${{ matrix.app }} \
+            --query taskDefinition > task-definition.json
+
+      - name: Use the new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ matrix.app }}
+          image: ${{ steps.ecr.outputs.registry }}/textshare-${{ matrix.app }}:${{ github.sha }}
+
+      - name: Deploy to ECS and wait until healthy
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ matrix.app }}
+          wait-for-service-stability: true
